@@ -21,7 +21,13 @@ Kleine Web-App, mit der 10 Personen aus drei Zimmern Zeitslots im Schwimmbad res
 
 Die Regeln stehen in `src/rules.js` und lassen sich dort anpassen.
 
-## Starten
+## Online-Version (Claude-Artifact)
+
+`artifact/schwimmbad.html` ist dieselbe App als einzelne Seite für ein Claude-Artifact:
+https://claude.ai/artifact/Uvrcq31BqedFwBZjPJ6ME4 – die Reservierungen liegen in der gemeinsamen
+Artifact-Datenbank (Sammlungen `people` und `reservations`).
+
+## Lokal starten
 
 ```bash
 npm start          # http://localhost:3000

@@ -1,0 +1,511 @@
+<title>Schwimmbad-Reservierung</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+/* Layout: eine Spalte – Zimmer-Übersicht, Buchungsformular, Tagesplan, Liste, Personen */
+:root {
+  --bg: #eef5f7; --card: #ffffff; --fg: #15303a; --muted: #5d7680; --line: #d3e2e7;
+  --accent: #0b7a95; --accent-fg: #ffffff; --accent-soft: #d5edf3; --buf: #f2c98f; --err: #b8402f; --err-soft: #f8e1dc;
+  --CS: #8a4fb0; --L: #0b7a95; --S: #2f8f5b;
+  --display: "Fraunces", Georgia, serif;
+  --body: "Atkinson Hyperlegible", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d1a1f; --card: #142832; --fg: #e3eff2; --muted: #8fa9b2; --line: #24404b;
+    --accent: #3fb3cf; --accent-fg: #06222a; --accent-soft: #123a46; --buf: #7a5a2a; --err: #f08b78; --err-soft: #3d1f1a;
+    --CS: #b383d6; --L: #3fb3cf; --S: #5cc48a; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d1a1f; --card: #142832; --fg: #e3eff2; --muted: #8fa9b2; --line: #24404b;
+  --accent: #3fb3cf; --accent-fg: #06222a; --accent-soft: #123a46; --buf: #7a5a2a; --err: #f08b78; --err-soft: #3d1f1a;
+  --CS: #b383d6; --L: #3fb3cf; --S: #5cc48a; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font: 15px/1.5 var(--body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 40px; }
+.wrap { max-width: 960px; margin: 0 auto; display: grid; gap: 16px; }
+header { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; justify-content: space-between; }
+h1 { font-family: var(--display); font-size: 1.7rem; margin: 0; text-wrap: balance; }
+h2 { font-family: var(--display); font-size: 1.15rem; margin: 0; }
+h3 { font-size: 1rem; margin: 0; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: grid; gap: 12px; min-width: 0; }
+input, select, button { font: inherit; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--fg); min-width: 0; }
+input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button { background: var(--accent); color: var(--accent-fg); border: 0; cursor: pointer; font-weight: 700; }
+button:disabled { opacity: .5; cursor: not-allowed; }
+button.ghost { background: transparent; color: var(--err); border: 1px solid var(--line); padding: 4px 10px; font-weight: 400; }
+button.ghost.armed { background: var(--err); color: var(--card); border-color: var(--err); }
+label { display: grid; gap: 4px; font-size: .88rem; color: var(--muted); }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; align-items: end; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chips label { display: flex; align-items: center; gap: 6px; padding: 8px 14px; border: 1px solid var(--line); border-radius: 999px; cursor: pointer; color: var(--fg); font-size: .95rem; }
+.chips input { margin: 0; }
+.chips label:has(input:checked) { background: var(--accent-soft); border-color: var(--accent); }
+.chips label.disabled { opacity: .5; cursor: not-allowed; text-decoration: line-through; }
+.rooms { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
+.room { border-top: 4px solid var(--c); gap: 6px; }
+.room.blocked { opacity: .7; border-top-color: var(--muted); }
+.room.blocked .bar > div { background: var(--err); }
+.bar { height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; }
+.bar > div { height: 100%; background: var(--c); }
+.muted { color: var(--muted); font-size: .88rem; margin: 0; }
+.badge { font-size: .72rem; font-weight: 700; color: var(--card); background: var(--err); padding: 2px 8px; border-radius: 999px; vertical-align: middle; letter-spacing: .03em; text-transform: uppercase; }
+.usage { list-style: none; padding: 0; margin: 0; font-size: .88rem; font-variant-numeric: tabular-nums; }
+.usage li { display: flex; justify-content: space-between; gap: 8px; }
+.usage li.done { text-decoration: line-through; color: var(--muted); }
+.errors { color: var(--err); white-space: pre-line; margin: 0; }
+.errors:empty, .ok:empty { display: none; }
+.ok { color: var(--S); margin: 0; }
+.banner { background: var(--err-soft); color: var(--fg); border-radius: 10px; padding: 10px 14px; margin: 0; }
+.list { list-style: none; padding: 0; margin: 0; }
+.list li { display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap; font-variant-numeric: tabular-nums; }
+.tag { display: inline-block; padding: 1px 8px; border-radius: 999px; color: var(--card); background: var(--c); font-size: .78rem; font-weight: 700; margin-right: 6px; }
+.tl-room h3 { font-size: .9rem; margin-bottom: 4px; }
+.tl-scroll { overflow-x: auto; }
+.tl-inner { min-width: 620px; padding: 0 10px; }
+.tl-lane { position: relative; height: 26px; background: var(--bg); border-radius: 6px; margin-bottom: 4px; }
+.tl-block { position: absolute; top: 2px; bottom: 2px; border-radius: 5px; overflow: hidden; display: flex; font-size: .75rem; }
+.tl-res { background: var(--c); color: var(--card); padding: 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; font-weight: 700; }
+.tl-buf { background: repeating-linear-gradient(45deg, var(--buf), var(--buf) 4px, transparent 4px, transparent 8px); }
+.tl-axis { position: relative; height: 18px; font-size: .7rem; color: var(--muted); }
+.tl-axis span { position: absolute; transform: translateX(-50%); }
+.legend { display: flex; gap: 8px; align-items: center; }
+.sw { display: inline-block; width: 14px; height: 14px; border-radius: 3px; }
+.sw-res { background: var(--accent); }
+.sw-buf { background: repeating-linear-gradient(45deg, var(--buf), var(--buf) 3px, transparent 3px, transparent 6px); border: 1px solid var(--line); }
+details > summary { cursor: pointer; list-style: revert; }
+.person-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.person-row input { flex: 1; min-width: 120px; }
+.rules { margin: 0; padding-left: 18px; color: var(--muted); font-size: .88rem; }
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Schwimmbad-Reservierung</h1>
+      <p class="muted">Zimmer CS, L und S · max. 2 Personen pro Zimmer gleichzeitig · 20 Min. Puffer nach jedem Slot</p>
+    </div>
+    <label>Tag <input type="date" id="date"></label>
+  </header>
+
+  <p id="banner" class="banner" hidden></p>
+
+  <section id="rooms" class="rooms" aria-label="Zimmer"></section>
+
+  <section class="card" aria-labelledby="h-form">
+    <h2 id="h-form">Neue Reservierung</h2>
+    <form id="form" class="card" style="border:0;padding:0">
+      <div>
+        <p class="muted" style="margin-bottom:6px">Über welches Zimmer?</p>
+        <div id="roomChoice" class="chips"></div>
+      </div>
+      <div class="grid">
+        <label>Person <select id="person"></select></label>
+        <label>Start <select id="start"></select></label>
+        <label>Dauer <select id="duration"></select></label>
+      </div>
+      <p id="preview" class="muted"></p>
+      <p id="errors" class="errors" role="alert"></p>
+      <p id="ok" class="ok" role="status"></p>
+      <div><button type="submit" id="submit">Reservieren</button></div>
+    </form>
+  </section>
+
+  <section class="card" aria-labelledby="h-tl">
+    <h2 id="h-tl">Tagesplan</h2>
+    <div id="timeline"></div>
+    <p class="muted legend"><span class="sw sw-res"></span> Reserviert <span class="sw sw-buf"></span> Puffer</p>
+  </section>
+
+  <section class="card" aria-labelledby="h-list">
+    <h2 id="h-list">Reservierungen</h2>
+    <ul id="list" class="list"></ul>
+  </section>
+
+  <details class="card" id="peopleBox">
+    <summary><h2 style="display:inline">Personen verwalten</h2></summary>
+    <div id="people" style="display:grid;gap:10px"></div>
+    <form id="addPerson" class="grid">
+      <label>Name <input id="newName" autocomplete="off"></label>
+      <label>Zimmer <select id="newRoom"></select></label>
+      <button type="submit" id="addBtn">Hinzufügen</button>
+    </form>
+  </details>
+
+  <details class="card">
+    <summary><h2 style="display:inline">Regeln</h2></summary>
+    <ul class="rules">
+      <li>Zimmer CS: 2 h pro Tag, 1 h pro Person. Zimmer L und S: je 6 h pro Tag, 3 h pro Person.</li>
+      <li>Pro Zimmer dürfen höchstens 2 Personen gleichzeitig ins Schwimmbad.</li>
+      <li>Nach jedem Slot sind 20 Minuten Puffer. Der Puffer belegt den Platz, zählt aber nicht zum Kontingent.</li>
+      <li>Ist das Tageskontingent eines Zimmers aufgebraucht, ist das Zimmer für diesen Tag gesperrt.</li>
+      <li>Buchbar im 10-Minuten-Raster zwischen 07:00 und 22:00 Uhr.</li>
+    </ul>
+  </details>
+</div>
+
+<script>
+'use strict';
+// ---- Regeln ----
+const ROOMS = [
+  { id: 'CS', name: 'Zimmer CS', dailyMinutes: 120, perPersonMinutes: 60, maxConcurrent: 2 },
+  { id: 'L', name: 'Zimmer L', dailyMinutes: 360, perPersonMinutes: 180, maxConcurrent: 2 },
+  { id: 'S', name: 'Zimmer S', dailyMinutes: 360, perPersonMinutes: 180, maxConcurrent: 2 },
+];
+const BUFFER = 20, STEP = 10, OPEN_FROM = 7 * 60, OPEN_UNTIL = 22 * 60;
+
+const $ = (id) => document.getElementById(id);
+const toMin = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+const toHHMM = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+const fmtDur = (m) => (m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''}` : `${m} min`);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const roomById = (id) => ROOMS.find((r) => r.id === id);
+
+function today() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+const sumMinutes = (list) => list.reduce((s, r) => s + r.duration, 0);
+
+// Maximal gleichzeitig belegte Plätze in [from, to), Puffer eingerechnet.
+function overlap(list, from, to) {
+  const pts = [];
+  for (const r of list) {
+    const s = toMin(r.start), e = s + r.duration + BUFFER;
+    const a = Math.max(s, from), b = Math.min(e, to);
+    if (a < b) pts.push([a, 1], [b, -1]);
+  }
+  pts.sort((x, y) => x[0] - y[0] || x[1] - y[1]);
+  let cur = 0, max = 0;
+  for (const [, d] of pts) { cur += d; max = Math.max(max, cur); }
+  return max;
+}
+
+function validate(input, dayReservations, people) {
+  const room = roomById(input.room);
+  if (!room) return ['Bitte ein Zimmer wählen.'];
+  const person = people.find((p) => p.id === input.personId);
+  if (!person) return ['Bitte eine Person wählen.'];
+  if (person.room !== room.id) return [`${person.name} gehört nicht zu ${room.name}.`];
+  const start = toMin(input.start), dur = input.duration;
+  if (!Number.isInteger(dur) || dur <= 0 || dur % STEP) return ['Bitte eine Dauer wählen.'];
+  if (start < OPEN_FROM || start + dur > OPEN_UNTIL) return [`Buchbar nur zwischen ${toHHMM(OPEN_FROM)} und ${toHHMM(OPEN_UNTIL)} Uhr.`];
+
+  const sameRoom = dayReservations.filter((r) => r.room === room.id);
+  const roomUsed = sumMinutes(sameRoom);
+  if (roomUsed >= room.dailyMinutes) return [`${room.name} ist für diesen Tag gesperrt – das Tageskontingent ist aufgebraucht.`];
+  const personUsed = sumMinutes(sameRoom.filter((r) => r.personId === person.id));
+  if (personUsed >= room.perPersonMinutes) return [`${person.name} hat das Tageskontingent bereits aufgebraucht.`];
+
+  const errors = [];
+  if (roomUsed + dur > room.dailyMinutes) errors.push(`${room.name} hat heute nur noch ${room.dailyMinutes - roomUsed} Minuten übrig.`);
+  if (personUsed + dur > room.perPersonMinutes) errors.push(`${person.name} hat heute nur noch ${room.perPersonMinutes - personUsed} Minuten übrig.`);
+  const to = start + dur + BUFFER;
+  if (overlap(dayReservations.filter((r) => r.personId === person.id), start, to) > 0) {
+    errors.push(`${person.name} hat in diesem Zeitraum (inkl. Puffer) schon eine Reservierung.`);
+  }
+  if (overlap(sameRoom, start, to) >= room.maxConcurrent) {
+    errors.push(`Über ${room.name} sind in diesem Zeitraum (inkl. Puffer) schon ${room.maxConcurrent} Personen eingetragen.`);
+  }
+  return errors;
+}
+
+// ---- Zustand ----
+let db = null;
+let canWrite = true;
+let people = [];
+let reservations = [];
+let unsubRes = null;
+
+function roomState(room) {
+  const used = sumMinutes(reservations.filter((r) => r.room === room.id));
+  const remaining = Math.max(0, room.dailyMinutes - used);
+  return { used, remaining, blocked: remaining === 0 };
+}
+const personUsed = (pid) => sumMinutes(reservations.filter((r) => r.personId === pid));
+const personName = (pid) => people.find((p) => p.id === pid)?.name || 'Unbekannt';
+const selectedRoom = () => document.querySelector('input[name=room]:checked')?.value;
+
+// ---- Darstellung ----
+function render() {
+  renderRooms();
+  renderRoomChoice();
+  renderFormOptions();
+  renderTimeline();
+  renderList();
+  if (!$('peopleBox').contains(document.activeElement)) renderPeople();
+}
+
+function renderRooms() {
+  $('rooms').innerHTML = ROOMS.map((room) => {
+    const st = roomState(room);
+    const pct = Math.min(100, (st.used / room.dailyMinutes) * 100);
+    const members = people.filter((p) => p.room === room.id);
+    return `<div class="card room ${st.blocked ? 'blocked' : ''}" style="--c: var(--${room.id})">
+      <h3>${esc(room.name)} ${st.blocked ? '<span class="badge">Gesperrt</span>' : ''}</h3>
+      <p class="muted">${fmtDur(room.dailyMinutes)} pro Tag · ${fmtDur(room.perPersonMinutes)} pro Person</p>
+      <div class="bar"><div style="width:${pct}%"></div></div>
+      <div><strong>${fmtDur(st.remaining)}</strong> <span class="muted">übrig von ${fmtDur(room.dailyMinutes)}</span></div>
+      <ul class="usage">${members.map((p) => `<li class="${personUsed(p.id) >= room.perPersonMinutes ? 'done' : ''}"><span>${esc(p.name)}</span><span class="muted">${fmtDur(personUsed(p.id))} / ${fmtDur(room.perPersonMinutes)}</span></li>`).join('') || '<li class="muted">Noch keine Personen</li>'}</ul>
+    </div>`;
+  }).join('');
+}
+
+function renderRoomChoice() {
+  const open = ROOMS.filter((r) => !roomState(r).blocked);
+  const prev = selectedRoom();
+  const current = open.some((r) => r.id === prev) ? prev : open[0]?.id;
+  $('roomChoice').innerHTML = ROOMS.map((r) => {
+    const blocked = roomState(r).blocked;
+    return `<label class="${blocked ? 'disabled' : ''}"><input type="radio" name="room" value="${r.id}" ${r.id === current ? 'checked' : ''} ${blocked ? 'disabled' : ''}> ${esc(r.name)}${blocked ? ' – gesperrt' : ''}</label>`;
+  }).join('');
+  const prevNew = $('newRoom').value;
+  $('newRoom').innerHTML = ROOMS.map((r) => `<option value="${r.id}">${esc(r.name)}</option>`).join('');
+  if (prevNew) $('newRoom').value = prevNew;
+}
+
+function renderFormOptions() {
+  const room = roomById(selectedRoom());
+  $('submit').disabled = !room || !canWrite || !db;
+  if (!room) {
+    for (const id of ['person', 'start', 'duration']) $(id).innerHTML = '<option value="">–</option>';
+    $('preview').textContent = 'Alle Zimmer sind für diesen Tag gesperrt.';
+    return;
+  }
+  const st = roomState(room);
+  const members = people.filter((p) => p.room === room.id);
+  const exhausted = (p) => personUsed(p.id) >= room.perPersonMinutes;
+  const personSel = $('person');
+  const prevPerson = personSel.value;
+  personSel.innerHTML = members.map((p) =>
+    `<option value="${p.id}" ${exhausted(p) ? 'disabled' : ''}>${esc(p.name)}${exhausted(p) ? ' (Zeit aufgebraucht)' : ''}</option>`
+  ).join('') || '<option value="">Keine Personen in diesem Zimmer</option>';
+  const available = members.filter((p) => !exhausted(p));
+  personSel.value = available.some((p) => p.id === prevPerson) ? prevPerson : available[0]?.id || '';
+
+  const pid = personSel.value;
+  const maxDur = Math.min(st.remaining, room.perPersonMinutes - (pid ? personUsed(pid) : 0));
+  const durSel = $('duration');
+  const prevDur = Number(durSel.value) || 0;
+  const durs = [];
+  for (let d = STEP; d <= maxDur; d += STEP) durs.push(d);
+  durSel.innerHTML = durs.map((d) => `<option value="${d}">${fmtDur(d)}</option>`).join('') || '<option value="">Kontingent aufgebraucht</option>';
+  if (durs.includes(prevDur)) durSel.value = prevDur;
+  else if (durs.length) durSel.value = Math.min(durs[durs.length - 1], 20);
+
+  const dur = Number(durSel.value) || STEP;
+  const roomRes = reservations.filter((r) => r.room === room.id);
+  const ownRes = reservations.filter((r) => r.personId === pid);
+  const startSel = $('start');
+  const prevStart = startSel.value;
+  let html = '';
+  for (let t = OPEN_FROM; t + dur <= OPEN_UNTIL; t += STEP) {
+    const to = t + dur + BUFFER;
+    const full = overlap(roomRes, t, to) >= room.maxConcurrent || overlap(ownRes, t, to) > 0;
+    html += `<option value="${toHHMM(t)}" ${full ? 'disabled' : ''}>${toHHMM(t)}${full ? ' (belegt)' : ''}</option>`;
+  }
+  startSel.innerHTML = html;
+  const opts = [...startSel.options];
+  const keep = opts.find((o) => o.value === prevStart && !o.disabled);
+  startSel.value = keep ? prevStart : opts.find((o) => !o.disabled)?.value || '';
+  updatePreview();
+}
+
+function updatePreview() {
+  const start = $('start').value, dur = Number($('duration').value);
+  if (!start || !dur) { $('preview').textContent = ''; return; }
+  const end = toMin(start) + dur;
+  $('preview').textContent = `Schwimmbad ${start}–${toHHMM(end)} Uhr, danach ${BUFFER} Min. Puffer bis ${toHHMM(end + BUFFER)} Uhr.`;
+}
+
+function renderTimeline() {
+  const span = OPEN_UNTIL - OPEN_FROM;
+  const pos = (m) => `${((m - OPEN_FROM) / span) * 100}%`;
+  let axis = '';
+  for (let h = OPEN_FROM; h <= OPEN_UNTIL; h += 60) axis += `<span style="left:${pos(h)}">${h / 60}</span>`;
+  $('timeline').innerHTML = ROOMS.map((room) => {
+    const list = reservations.filter((r) => r.room === room.id).sort((a, b) => toMin(a.start) - toMin(b.start));
+    const laneEnds = [];
+    const placed = list.map((r) => {
+      const s = toMin(r.start);
+      let lane = laneEnds.findIndex((e) => e <= s);
+      if (lane === -1) { lane = laneEnds.length; laneEnds.push(0); }
+      laneEnds[lane] = s + r.duration + BUFFER;
+      return { r, lane };
+    });
+    const laneCount = Math.max(laneEnds.length, room.maxConcurrent);
+    const lanes = Array.from({ length: laneCount }, (_, i) => `<div class="tl-lane">${placed.filter((x) => x.lane === i).map(({ r }) => {
+      const s = toMin(r.start);
+      const name = personName(r.personId);
+      return `<div class="tl-block" style="left:${pos(s)};width:${((r.duration + BUFFER) / span) * 100}%" title="${esc(name)}: ${r.start}–${toHHMM(s + r.duration)} (+${BUFFER} Min. Puffer)"><div class="tl-res" style="flex:${r.duration}">${esc(name)}</div><div class="tl-buf" style="flex:${BUFFER}"></div></div>`;
+    }).join('')}</div>`).join('');
+    return `<div class="tl-room" style="--c: var(--${room.id})"><h3>${esc(room.name)}</h3><div class="tl-scroll"><div class="tl-inner">${lanes}<div class="tl-axis">${axis}</div></div></div></div>`;
+  }).join('');
+}
+
+function renderList() {
+  const sorted = [...reservations].sort((a, b) => toMin(a.start) - toMin(b.start) || a.room.localeCompare(b.room));
+  if (!sorted.length) { $('list').innerHTML = '<li class="muted">Für diesen Tag ist noch nichts reserviert. Oben Zimmer, Person und Zeit wählen und auf „Reservieren“ tippen.</li>'; return; }
+  $('list').innerHTML = sorted.map((r) => {
+    const end = toMin(r.start) + r.duration;
+    return `<li style="--c: var(--${r.room})"><span><span class="tag">${esc(r.room)}</span><strong>${r.start}–${toHHMM(end)}</strong> ${esc(personName(r.personId))}
+      <span class="muted">(${fmtDur(r.duration)}, Puffer bis ${toHHMM(end + BUFFER)})</span></span>
+      ${canWrite && db ? `<button class="ghost" type="button" data-del="${r.id}">Löschen</button>` : ''}</li>`;
+  }).join('');
+}
+
+function renderPeople() {
+  const editable = canWrite && db;
+  $('people').innerHTML = ROOMS.map((room) => {
+    const members = people.filter((p) => p.room === room.id);
+    return `<div style="display:grid;gap:6px"><h3>${esc(room.name)} (${members.length})</h3>${members.map((p) => `
+      <div class="person-row">
+        <input value="${esc(p.name)}" data-rename="${p.id}" aria-label="Name" ${editable ? '' : 'disabled'}>
+        <select data-move="${p.id}" aria-label="Zimmer" ${editable ? '' : 'disabled'}>${ROOMS.map((r) => `<option value="${r.id}" ${r.id === p.room ? 'selected' : ''}>${r.id}</option>`).join('')}</select>
+        ${editable ? `<button class="ghost" type="button" data-delperson="${p.id}">Entfernen</button>` : ''}
+      </div>`).join('') || '<p class="muted">Noch niemand in diesem Zimmer.</p>'}</div>`;
+  }).join('') + `<p class="muted">Insgesamt ${people.length} Personen.</p>`;
+  $('addBtn').disabled = !editable;
+}
+
+function showBanner(text) { $('banner').textContent = text; $('banner').hidden = !text; }
+function flash(msg) { $('ok').textContent = msg; setTimeout(() => { if ($('ok').textContent === msg) $('ok').textContent = ''; }, 4000); }
+
+// ---- Datenbank ----
+function subscribeReservations() {
+  if (unsubRes) unsubRes();
+  reservations = [];
+  render();
+  unsubRes = db.collection('reservations').where('date', '==', $('date').value).onSnapshot((snap) => {
+    reservations = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    render();
+  }, onDbError);
+}
+
+function onDbError(e) {
+  if (e.code === 'revoked') { canWrite = false; showBanner('Der Zugriff auf die gemeinsamen Daten ist nicht mehr verfügbar.'); render(); return; }
+  showBanner('Die Reservierungen konnten nicht geladen werden. Bitte die Seite neu laden.');
+}
+
+async function writeOrExplain(fn) {
+  try { return await fn(); }
+  catch (e) {
+    if (e && e.code === 'invalid_argument' && !e.message?.includes('path')) {
+      canWrite = false; render();
+      throw new Error('Du kannst hier nur ansehen, nicht buchen. Bitte die Person, die die Seite geteilt hat, um Bearbeitungsrechte bitten.');
+    }
+    throw new Error(e?.message || 'Speichern hat nicht geklappt. Bitte nochmal versuchen.');
+  }
+}
+
+async function book(input) {
+  // Kurze Sperre pro Zimmer und Tag, damit zwei gleichzeitige Buchungen nicht beide durchgehen.
+  const lock = db.doc(`locks/${input.date}_${input.room}`);
+  const holder = (crypto.randomUUID && crypto.randomUUID()) || String(Math.random());
+  let lease = await lock.acquire({ holder, ttlMs: 5000 });
+  for (let i = 0; i < 6 && !lease.acquired; i++) { await sleep(400 + Math.random() * 400); lease = await lock.acquire({ holder, ttlMs: 5000 }); }
+  if (!lease.acquired) throw new Error('Gerade bucht jemand anderes über dieses Zimmer. Bitte gleich nochmal versuchen.');
+  const snap = await db.collection('reservations').where('date', '==', input.date).get();
+  const fresh = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const errors = validate(input, fresh, people);
+  if (errors.length) throw new Error(errors.join('\n'));
+  await db.collection('reservations').add({ ...input, createdAt: new Date().toISOString() });
+}
+
+$('form').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  $('errors').textContent = ''; $('ok').textContent = '';
+  const input = { date: $('date').value, room: selectedRoom(), personId: $('person').value, start: $('start').value, duration: Number($('duration').value) };
+  const pre = validate(input, reservations, people);
+  if (pre.length) { $('errors').textContent = pre.join('\n'); return; }
+  $('submit').disabled = true;
+  try {
+    await writeOrExplain(() => book(input));
+    flash(`Reserviert: ${personName(input.personId)}, ${input.start}–${toHHMM(toMin(input.start) + input.duration)} Uhr über ${roomById(input.room).name}.`);
+  } catch (e) { $('errors').textContent = e.message; }
+  finally { renderFormOptions(); }
+});
+
+$('roomChoice').addEventListener('change', renderFormOptions);
+$('person').addEventListener('change', renderFormOptions);
+$('duration').addEventListener('change', renderFormOptions);
+$('start').addEventListener('change', updatePreview);
+$('date').addEventListener('change', () => { if (db) subscribeReservations(); });
+
+// Löschen in zwei Schritten: erster Klick schärft den Knopf, zweiter löscht.
+document.addEventListener('click', async (ev) => {
+  const btn = ev.target.closest('button[data-del], button[data-delperson]');
+  if (!btn) return;
+  if (!btn.classList.contains('armed')) {
+    btn.classList.add('armed'); btn.dataset.label = btn.textContent; btn.textContent = 'Wirklich?';
+    setTimeout(() => { if (btn.isConnected) { btn.classList.remove('armed'); btn.textContent = btn.dataset.label; } }, 3000);
+    return;
+  }
+  try {
+    if (btn.dataset.del) await writeOrExplain(() => db.collection('reservations').doc(btn.dataset.del).delete());
+    if (btn.dataset.delperson) {
+      const id = btn.dataset.delperson;
+      const any = await db.collection('reservations').where('personId', '==', id).limit(1).get();
+      if (!any.empty) throw new Error('Diese Person hat noch Reservierungen. Bitte zuerst die Reservierungen löschen.');
+      await writeOrExplain(() => db.collection('people').doc(id).delete());
+    }
+  } catch (e) { showBanner(e.message); setTimeout(() => showBanner(''), 5000); }
+});
+
+document.addEventListener('change', async (ev) => {
+  const renameId = ev.target.dataset.rename, moveId = ev.target.dataset.move;
+  if (!renameId && !moveId) return;
+  try {
+    if (renameId) {
+      const name = ev.target.value.trim();
+      if (!name) { ev.target.value = personName(renameId); return; }
+      await writeOrExplain(() => db.collection('people').doc(renameId).update({ name }));
+    }
+    if (moveId) {
+      const any = await db.collection('reservations').where('personId', '==', moveId).limit(1).get();
+      if (!any.empty) { ev.target.value = people.find((p) => p.id === moveId)?.room; throw new Error('Diese Person hat noch Reservierungen. Bitte zuerst die Reservierungen löschen, dann das Zimmer wechseln.'); }
+      await writeOrExplain(() => db.collection('people').doc(moveId).update({ room: ev.target.value }));
+    }
+  } catch (e) { showBanner(e.message); setTimeout(() => showBanner(''), 5000); }
+  ev.target.blur();
+});
+
+$('addPerson').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const name = $('newName').value.trim();
+  if (!name) return;
+  try {
+    const order = Math.max(0, ...people.map((p) => p.order || 0)) + 1;
+    await writeOrExplain(() => db.collection('people').add({ name, room: $('newRoom').value, order }));
+    $('newName').value = '';
+  } catch (e) { showBanner(e.message); setTimeout(() => showBanner(''), 5000); }
+});
+
+// ---- Start ----
+$('date').value = today();
+render();
+
+(async () => {
+  db = window.claude ? await window.claude.use('db') : null;
+  if (!db) {
+    canWrite = false;
+    showBanner('Die gemeinsamen Reservierungen sind in dieser Ansicht nicht verfügbar. Bitte in claude.ai angemeldet öffnen.');
+    render();
+    return;
+  }
+  const user = await window.claude.use('user');
+  const may = user ? await user.can('data.write') : null;
+  if (may === false) { canWrite = false; showBanner('Du kannst die Reservierungen ansehen, aber nicht buchen. Bitte die Person, die die Seite geteilt hat, um Bearbeitungsrechte bitten.'); }
+  db.collection('people').onSnapshot((snap) => {
+    people = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => (a.order || 0) - (b.order || 0) || a.name.localeCompare(b.name));
+    render();
+  }, onDbError);
+  subscribeReservations();
+})();
+</script>
