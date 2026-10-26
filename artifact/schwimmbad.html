@@ -1,7 +1,7 @@
 <title>Schwimmbad-Reservierung</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Figtree:wght@400;600;700&display=swap">
 <style>
 /* Layout: eine Spalte – Zimmer-Übersicht, Buchungsformular, Tagesplan, Liste, Personen */
 :root {
@@ -9,7 +9,7 @@
   --accent: #0b7a95; --accent-fg: #ffffff; --accent-soft: #d5edf3; --buf: #f2c98f; --err: #b8402f; --err-soft: #f8e1dc;
   --CS: #8a4fb0; --L: #0b7a95; --S: #2f8f5b;
   --display: "Fraunces", Georgia, serif;
-  --body: "Atkinson Hyperlegible", system-ui, sans-serif;
+  --body: "Figtree", system-ui, sans-serif;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -63,15 +63,21 @@ label { display: grid; gap: 4px; font-size: .88rem; color: var(--muted); }
 .list { list-style: none; padding: 0; margin: 0; }
 .list li { display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap; font-variant-numeric: tabular-nums; }
 .tag { display: inline-block; padding: 1px 8px; border-radius: 999px; color: var(--card); background: var(--c); font-size: .78rem; font-weight: 700; margin-right: 6px; }
-.tl-room h3 { font-size: .9rem; margin-bottom: 4px; }
-.tl-scroll { overflow-x: auto; }
-.tl-inner { min-width: 620px; padding: 0 10px; }
-.tl-lane { position: relative; height: 26px; background: var(--bg); border-radius: 6px; margin-bottom: 4px; }
-.tl-block { position: absolute; top: 2px; bottom: 2px; border-radius: 5px; overflow: hidden; display: flex; font-size: .75rem; }
-.tl-res { background: var(--c); color: var(--card); padding: 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; font-weight: 700; }
-.tl-buf { background: repeating-linear-gradient(45deg, var(--buf), var(--buf) 4px, transparent 4px, transparent 8px); }
-.tl-axis { position: relative; height: 18px; font-size: .7rem; color: var(--muted); }
-.tl-axis span { position: absolute; transform: translateX(-50%); }
+.time { display: flex; gap: 6px; align-items: center; color: var(--fg); }
+.time select { flex: 1; }
+.grid > label { min-width: 0; }
+.vt { display: grid; grid-template-columns: 40px repeat(3, minmax(0, 1fr)); gap: 0 8px; }
+.vt-head { font-weight: 700; font-size: .85rem; padding-bottom: 6px; display: flex; align-items: center; gap: 6px; min-width: 0; }
+.vt-head .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--c); flex: none; }
+.vt-axis { position: relative; font-size: .72rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.vt-axis span { position: absolute; right: 0; transform: translateY(-50%); }
+.vt-col { position: relative; display: grid; gap: 3px; border-radius: 8px; background-color: var(--bg);
+  background-image: linear-gradient(var(--line) 1px, transparent 1px); background-size: 100% var(--hour); }
+.vt-lane { position: relative; min-width: 0; }
+.vt-block { position: absolute; left: 0; right: 0; display: flex; flex-direction: column; border-radius: 5px; overflow: hidden; }
+.vt-res { background: var(--c); color: var(--card); font-size: .72rem; line-height: 1.15; padding: 2px 4px; overflow: hidden; font-weight: 700; }
+.vt-res small { display: block; font-weight: 400; font-variant-numeric: tabular-nums; }
+.vt-buf { background: repeating-linear-gradient(45deg, var(--buf), var(--buf) 4px, transparent 4px, transparent 8px); }
 .legend { display: flex; gap: 8px; align-items: center; }
 .sw { display: inline-block; width: 14px; height: 14px; border-radius: 3px; }
 .sw-res { background: var(--accent); }
@@ -104,7 +110,7 @@ details > summary { cursor: pointer; list-style: revert; }
       </div>
       <div class="grid">
         <label>Person <select id="person"></select></label>
-        <label>Start <select id="start"></select></label>
+        <label>Start <span class="time"><select id="startH" aria-label="Stunde"></select>:<select id="startM" aria-label="Minute"></select></span></label>
         <label>Dauer <select id="duration"></select></label>
       </div>
       <p id="preview" class="muted"></p>
@@ -273,7 +279,7 @@ function renderFormOptions() {
   const room = roomById(selectedRoom());
   $('submit').disabled = !room || !canWrite || !db;
   if (!room) {
-    for (const id of ['person', 'start', 'duration']) $(id).innerHTML = '<option value="">–</option>';
+    for (const id of ['person', 'startH', 'startM', 'duration']) $(id).innerHTML = '<option value="">–</option>';
     $('preview').textContent = 'Alle Zimmer sind für diesen Tag gesperrt.';
     return;
   }
@@ -301,34 +307,58 @@ function renderFormOptions() {
   const dur = Number(durSel.value) || STEP;
   const roomRes = reservations.filter((r) => r.room === room.id);
   const ownRes = reservations.filter((r) => r.personId === pid);
-  const startSel = $('start');
-  const prevStart = startSel.value;
-  let html = '';
+  // Freie Startzeiten, nach Stunde gruppiert
+  const free = new Map();
   for (let t = OPEN_FROM; t + dur <= OPEN_UNTIL; t += STEP) {
     const to = t + dur + BUFFER;
-    const full = overlap(roomRes, t, to) >= room.maxConcurrent || overlap(ownRes, t, to) > 0;
-    html += `<option value="${toHHMM(t)}" ${full ? 'disabled' : ''}>${toHHMM(t)}${full ? ' (belegt)' : ''}</option>`;
+    const ok = overlap(roomRes, t, to) < room.maxConcurrent && overlap(ownRes, t, to) === 0;
+    const h = Math.floor(t / 60);
+    if (!free.has(h)) free.set(h, []);
+    free.get(h).push({ m: t % 60, ok });
   }
-  startSel.innerHTML = html;
-  const opts = [...startSel.options];
-  const keep = opts.find((o) => o.value === prevStart && !o.disabled);
-  startSel.value = keep ? prevStart : opts.find((o) => !o.disabled)?.value || '';
+  const prevH = Number($('startH').value), prevM = $('startM').value;
+  const hours = [...free.keys()];
+  const hourOk = (h) => free.get(h).some((x) => x.ok);
+  $('startH').innerHTML = hours.map((h) => `<option value="${h}" ${hourOk(h) ? '' : 'disabled'}>${String(h).padStart(2, '0')}${hourOk(h) ? '' : ' (voll)'}</option>`).join('');
+  const h = hours.includes(prevH) && hourOk(prevH) ? prevH : hours.find(hourOk);
+  $('startH').value = h ?? '';
+  const mins = h !== undefined ? free.get(h) : [];
+  $('startM').innerHTML = mins.map((x) => `<option value="${String(x.m).padStart(2, '0')}" ${x.ok ? '' : 'disabled'}>${String(x.m).padStart(2, '0')}${x.ok ? '' : ' (belegt)'}</option>`).join('');
+  const keepM = mins.find((x) => x.ok && String(x.m).padStart(2, '0') === prevM);
+  const firstM = mins.find((x) => x.ok);
+  $('startM').value = keepM ? prevM : firstM ? String(firstM.m).padStart(2, '0') : '';
   updatePreview();
 }
 
+function startValue() {
+  const h = $('startH').value, m = $('startM').value;
+  return h && m ? `${String(h).padStart(2, '0')}:${m}` : '';
+}
+
 function updatePreview() {
-  const start = $('start').value, dur = Number($('duration').value);
+  const start = startValue(), dur = Number($('duration').value);
   if (!start || !dur) { $('preview').textContent = ''; return; }
   const end = toMin(start) + dur;
   $('preview').textContent = `Schwimmbad ${start}–${toHHMM(end)} Uhr, danach ${BUFFER} Min. Puffer bis ${toHHMM(end + BUFFER)} Uhr.`;
 }
 
+const PX_PER_MIN = 1.6;
+
 function renderTimeline() {
-  const span = OPEN_UNTIL - OPEN_FROM;
-  const pos = (m) => `${((m - OPEN_FROM) / span) * 100}%`;
+  if (!reservations.length) {
+    $('timeline').innerHTML = '<p class="muted">Noch keine Reservierungen an diesem Tag.</p>';
+    return;
+  }
+  // Nur die Stunden zeigen, in denen etwas los ist (inkl. Puffer).
+  const from = Math.max(OPEN_FROM, Math.floor(Math.min(...reservations.map((r) => toMin(r.start))) / 60) * 60);
+  const until = Math.min(OPEN_UNTIL + 60, Math.ceil(Math.max(...reservations.map((r) => toMin(r.start) + r.duration + BUFFER)) / 60) * 60);
+  const height = (until - from) * PX_PER_MIN;
+  const y = (m) => (m - from) * PX_PER_MIN;
   let axis = '';
-  for (let h = OPEN_FROM; h <= OPEN_UNTIL; h += 60) axis += `<span style="left:${pos(h)}">${h / 60}</span>`;
-  $('timeline').innerHTML = ROOMS.map((room) => {
+  for (let m = from; m <= until; m += 60) axis += `<span style="top:${y(m)}px">${toHHMM(m)}</span>`;
+
+  const heads = ROOMS.map((room) => `<div class="vt-head" style="--c: var(--${room.id})"><span class="dot"></span>${esc(room.id)}</div>`).join('');
+  const cols = ROOMS.map((room) => {
     const list = reservations.filter((r) => r.room === room.id).sort((a, b) => toMin(a.start) - toMin(b.start));
     const laneEnds = [];
     const placed = list.map((r) => {
@@ -339,13 +369,16 @@ function renderTimeline() {
       return { r, lane };
     });
     const laneCount = Math.max(laneEnds.length, room.maxConcurrent);
-    const lanes = Array.from({ length: laneCount }, (_, i) => `<div class="tl-lane">${placed.filter((x) => x.lane === i).map(({ r }) => {
+    const lanes = Array.from({ length: laneCount }, (_, i) => `<div class="vt-lane">${placed.filter((x) => x.lane === i).map(({ r }) => {
       const s = toMin(r.start);
       const name = personName(r.personId);
-      return `<div class="tl-block" style="left:${pos(s)};width:${((r.duration + BUFFER) / span) * 100}%" title="${esc(name)}: ${r.start}–${toHHMM(s + r.duration)} (+${BUFFER} Min. Puffer)"><div class="tl-res" style="flex:${r.duration}">${esc(name)}</div><div class="tl-buf" style="flex:${BUFFER}"></div></div>`;
+      const showTime = r.duration >= 20;
+      return `<div class="vt-block" style="top:${y(s)}px;height:${(r.duration + BUFFER) * PX_PER_MIN}px" title="${esc(name)}: ${r.start}–${toHHMM(s + r.duration)} (+${BUFFER} Min. Puffer)">
+        <div class="vt-res" style="flex:${r.duration}">${esc(name)}${showTime ? `<small>${r.start}–${toHHMM(s + r.duration)}</small>` : ''}</div><div class="vt-buf" style="flex:${BUFFER}"></div></div>`;
     }).join('')}</div>`).join('');
-    return `<div class="tl-room" style="--c: var(--${room.id})"><h3>${esc(room.name)}</h3><div class="tl-scroll"><div class="tl-inner">${lanes}<div class="tl-axis">${axis}</div></div></div></div>`;
+    return `<div class="vt-col" style="--c: var(--${room.id}); --hour:${60 * PX_PER_MIN}px; height:${height}px; grid-template-columns: repeat(${laneCount}, minmax(0, 1fr))">${lanes}</div>`;
   }).join('');
+  $('timeline').innerHTML = `<div class="vt"><div></div>${heads}<div class="vt-axis" style="height:${height}px">${axis}</div>${cols}</div>`;
 }
 
 function renderList() {
@@ -420,7 +453,7 @@ async function book(input) {
 $('form').addEventListener('submit', async (ev) => {
   ev.preventDefault();
   $('errors').textContent = ''; $('ok').textContent = '';
-  const input = { date: $('date').value, room: selectedRoom(), personId: $('person').value, start: $('start').value, duration: Number($('duration').value) };
+  const input = { date: $('date').value, room: selectedRoom(), personId: $('person').value, start: startValue(), duration: Number($('duration').value) };
   const pre = validate(input, reservations, people);
   if (pre.length) { $('errors').textContent = pre.join('\n'); return; }
   $('submit').disabled = true;
@@ -434,7 +467,8 @@ $('form').addEventListener('submit', async (ev) => {
 $('roomChoice').addEventListener('change', renderFormOptions);
 $('person').addEventListener('change', renderFormOptions);
 $('duration').addEventListener('change', renderFormOptions);
-$('start').addEventListener('change', updatePreview);
+$('startH').addEventListener('change', renderFormOptions);
+$('startM').addEventListener('change', updatePreview);
 $('date').addEventListener('change', () => { if (db) subscribeReservations(); });
 
 // Löschen in zwei Schritten: erster Klick schärft den Knopf, zweiter löscht.
