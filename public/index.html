@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Schwimmbad-Reservierung</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>🏊 Schwimmbad-Reservierung</h1>
+    <label class="date">Tag <input type="date" id="date"></label>
+  </header>
+
+  <main>
+    <section id="rooms" class="rooms"></section>
+
+    <section class="card">
+      <h2>Neue Reservierung</h2>
+      <form id="form">
+        <fieldset>
+          <legend>Über welches Zimmer?</legend>
+          <div id="roomChoice" class="chips"></div>
+        </fieldset>
+        <div class="grid">
+          <label>Person <select id="person" required></select></label>
+          <label>Start <select id="start" required></select></label>
+          <label>Dauer <select id="duration" required></select></label>
+        </div>
+        <p id="preview" class="muted"></p>
+        <p id="errors" class="errors" role="alert"></p>
+        <button type="submit">Reservieren</button>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>Tagesübersicht</h2>
+      <div id="timeline"></div>
+      <p class="muted legend"><span class="sw sw-res"></span> Reserviert <span class="sw sw-buf"></span> Puffer</p>
+    </section>
+
+    <section class="card">
+      <h2>Reservierungen</h2>
+      <ul id="list" class="list"></ul>
+    </section>
+
+    <details class="card">
+      <summary><h2>Personen verwalten</h2></summary>
+      <div id="people"></div>
+      <form id="addPerson" class="grid">
+        <label>Name <input id="newName" required></label>
+        <label>Zimmer <select id="newRoom"></select></label>
+        <button type="submit">Hinzufügen</button>
+      </form>
+    </details>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

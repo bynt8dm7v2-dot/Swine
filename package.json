@@ -1,0 +1,12 @@
+{
+  "name": "schwimmbad-reservierung",
+  "version": "1.0.0",
+  "description": "Kleine App zum Reservieren von Schwimmbad-Zeitslots für drei Zimmer (CS, L, S)",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test"
+  },
+  "engines": { "node": ">=18" },
+  "license": "MIT"
+}
