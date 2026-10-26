@@ -59,3 +59,9 @@ legend { font-size: .9rem; color: var(--muted); margin-bottom: 6px; }
 .sw-buf { background: repeating-linear-gradient(45deg, var(--buf), var(--buf) 3px, transparent 3px, transparent 6px); border: 1px solid var(--line); }
 .person-row { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; flex-wrap: wrap; }
 .person-row input { flex: 1; min-width: 140px; }
+.room.blocked { opacity: .65; border-top-color: var(--muted); }
+.room.blocked .bar > div { background: var(--err); }
+.badge { font-size: .75rem; font-weight: 600; color: #fff; background: var(--err); padding: 2px 8px; border-radius: 999px; vertical-align: middle; }
+.people-usage li.done { text-decoration: line-through; color: var(--muted); }
+.chips label.disabled { opacity: .5; cursor: not-allowed; text-decoration: line-through; }
+button:disabled { opacity: .5; cursor: not-allowed; }

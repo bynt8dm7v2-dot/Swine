@@ -58,32 +58,45 @@ function renderRooms() {
   $('rooms').innerHTML = state.rooms.map((room) => {
     const pct = Math.min(100, (room.usedMinutes / room.dailyMinutes) * 100);
     const people = state.people.filter((p) => p.room === room.id);
-    return `<div class="card room" style="--c: var(--${room.id})">
-      <h3>${esc(room.name)}</h3>
+    return `<div class="card room ${room.blocked ? 'blocked' : ''}" style="--c: var(--${room.id})">
+      <h3>${esc(room.name)}${room.blocked ? ' <span class="badge">Gesperrt</span>' : ''}</h3>
       <div class="muted">${fmtDur(room.dailyMinutes)} pro Tag · ${fmtDur(room.perPersonMinutes)} pro Person · max. ${room.maxConcurrent} gleichzeitig</div>
       <div class="bar"><div style="width:${pct}%"></div></div>
       <div><strong>${fmtDur(room.remainingMinutes)}</strong> <span class="muted">übrig von ${fmtDur(room.dailyMinutes)}</span></div>
-      <ul class="people-usage">${people.map((p) => `<li><span>${esc(p.name)}</span><span class="muted">${fmtDur(personUsed(p.id))} / ${fmtDur(room.perPersonMinutes)}</span></li>`).join('')}</ul>
+      <ul class="people-usage">${people.map((p) => `<li class="${personUsed(p.id) >= room.perPersonMinutes ? 'done' : ''}"><span>${esc(p.name)}</span><span class="muted">${fmtDur(personUsed(p.id))} / ${fmtDur(room.perPersonMinutes)}</span></li>`).join('')}</ul>
     </div>`;
   }).join('');
 }
 
 function renderRoomChoice() {
-  const current = selectedRoom() || state.rooms[0].id;
+  // Zimmer mit aufgebrauchtem Tageskontingent sind gesperrt und nicht wählbar.
+  const open = state.rooms.filter((r) => !r.blocked);
+  const prev = selectedRoom();
+  const current = open.some((r) => r.id === prev) ? prev : open[0]?.id;
   $('roomChoice').innerHTML = state.rooms.map((r) =>
-    `<label><input type="radio" name="room" value="${r.id}" ${r.id === current ? 'checked' : ''}> ${esc(r.name)}</label>`
+    `<label class="${r.blocked ? 'disabled' : ''}"><input type="radio" name="room" value="${r.id}" ${r.id === current ? 'checked' : ''} ${r.blocked ? 'disabled' : ''}>
+      ${esc(r.name)}${r.blocked ? ' – gesperrt' : ''}</label>`
   ).join('');
   $('newRoom').innerHTML = state.rooms.map((r) => `<option value="${r.id}">${esc(r.name)}</option>`).join('');
 }
 
 function renderFormOptions() {
   const room = roomById(selectedRoom());
+  $('form').querySelector('button[type=submit]').disabled = !room;
+  if (!room) {
+    for (const id of ['person', 'start', 'duration']) $(id).innerHTML = '<option value="">–</option>';
+    $('preview').textContent = 'Alle Zimmer sind für diesen Tag gesperrt.';
+    return;
+  }
   const personSel = $('person');
   const prevPerson = personSel.value;
   const people = state.people.filter((p) => p.room === room.id);
-  personSel.innerHTML = people.map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join('')
-    || '<option value="">– keine Personen in diesem Zimmer –</option>';
-  if (people.some((p) => p.id === prevPerson)) personSel.value = prevPerson;
+  const exhausted = (p) => personUsed(p.id) >= room.perPersonMinutes;
+  personSel.innerHTML = people.map((p) =>
+    `<option value="${p.id}" ${exhausted(p) ? 'disabled' : ''}>${esc(p.name)}${exhausted(p) ? ' (Zeit aufgebraucht)' : ''}</option>`
+  ).join('') || '<option value="">– keine Personen in diesem Zimmer –</option>';
+  const available = people.filter((p) => !exhausted(p));
+  personSel.value = available.some((p) => p.id === prevPerson) ? prevPerson : available[0]?.id || '';
 
   const pid = personSel.value;
   const maxDur = Math.min(room.remainingMinutes, room.perPersonMinutes - (pid ? personUsed(pid) : 0));

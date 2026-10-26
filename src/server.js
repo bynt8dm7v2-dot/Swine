@@ -11,12 +11,15 @@ const DATA_FILE = process.env.DATA_FILE || path.join(__dirname, '..', 'data', 'd
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 
 function defaultData() {
-  // 10 Personen, verteilt auf die drei Zimmer – Namen lassen sich in der App ändern.
-  const layout = [['CS', 2], ['L', 4], ['S', 4]];
+  // 10 Personen, verteilt auf die drei Zimmer – Namen und Zuordnung lassen sich in der App ändern.
+  const layout = {
+    CS: ['MC 1', 'MC 2'],
+    L: ['MA', 'TA', 'AN', 'CE'],
+    S: ['DO', 'DA', 'MI', 'KE'],
+  };
   const people = [];
-  let n = 1;
-  for (const [room, count] of layout) {
-    for (let i = 0; i < count; i++) people.push({ id: crypto.randomUUID(), name: `Person ${n++}`, room });
+  for (const [room, names] of Object.entries(layout)) {
+    for (const name of names) people.push({ id: crypto.randomUUID(), name, room });
   }
   return { people, reservations: [] };
 }

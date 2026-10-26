@@ -15,6 +15,8 @@ Kleine Web-App, mit der 10 Personen aus drei Zimmern Zeitslots im Schwimmbad res
 - Nach jedem Zeitslot gibt es **20 Minuten Puffer**. Der Puffer belegt den Platz (zählt also bei „max. 2 gleichzeitig“ mit),
   wird aber **nicht** vom Tageskontingent abgezogen.
 - Eine Person kann keine zwei Reservierungen haben, die sich (inkl. Puffer) überschneiden.
+- Ist das Tageskontingent eines Zimmers aufgebraucht, ist das Zimmer für den Tag **gesperrt**; ebenso
+  kann eine Person mit aufgebrauchtem Kontingent nicht mehr gewählt werden.
 - Öffnungszeiten: 07:00–22:00 Uhr.
 
 Die Regeln stehen in `src/rules.js` und lassen sich dort anpassen.
@@ -28,5 +30,5 @@ npm test           # Regel-Tests
 
 Keine Abhängigkeiten nötig (Node.js ≥ 18). Die Daten liegen in `data/data.json`
 (anderer Pfad über `DATA_FILE=…`, anderer Port über `PORT=…`).
-Beim ersten Start werden 10 Personen angelegt (CS: 2, L: 4, S: 4) – Namen und Zuordnung
-lassen sich in der App unter „Personen verwalten“ ändern.
+Beim ersten Start werden 10 Personen angelegt – CS: MC 1, MC 2 · L: MA, TA, AN, CE · S: DO, DA, MI, KE.
+Namen lassen sich in der App unter „Personen verwalten“ ändern.

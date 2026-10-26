@@ -89,6 +89,13 @@ function validateReservation(input, existing, people) {
   const sameRoom = sameDay.filter((r) => r.room === room.id);
 
   const roomUsed = usedMinutes(sameRoom, () => true);
+  if (roomUsed >= room.dailyMinutes) {
+    return [`${room.name} ist für diesen Tag gesperrt – das Tageskontingent ist aufgebraucht.`];
+  }
+  const personUsedTotal = usedMinutes(sameRoom, (r) => r.personId === input.personId);
+  if (personUsedTotal >= room.perPersonMinutes) {
+    return [`${person.name} hat das Tageskontingent bereits aufgebraucht.`];
+  }
   if (roomUsed + duration > room.dailyMinutes) {
     errors.push(`${room.name} hat heute nur noch ${room.dailyMinutes - roomUsed} Minuten übrig.`);
   }
@@ -118,7 +125,8 @@ function validateReservation(input, existing, people) {
 function roomSummary(roomId, date, reservations) {
   const room = ROOMS[roomId];
   const used = usedMinutes(reservations, (r) => r.date === date && r.room === roomId);
-  return { ...room, usedMinutes: used, remainingMinutes: room.dailyMinutes - used };
+  const remaining = Math.max(0, room.dailyMinutes - used);
+  return { ...room, usedMinutes: used, remainingMinutes: remaining, blocked: remaining === 0 };
 }
 
 module.exports = {

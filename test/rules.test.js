@@ -52,3 +52,10 @@ test('Raster und Öffnungszeiten', () => {
   assert.match(validateReservation(res('a', 'CS', '21:50', 20), [], people).join(), /geöffnet/);
   assert.match(validateReservation(res('a', 'CS', '10:00', 15), [], people).join(), /Vielfaches/);
 });
+
+test('Zimmer ist gesperrt, wenn das Tageskontingent aufgebraucht ist', () => {
+  const existing = [res('a', 'CS', '08:00', 60), res('b', 'CS', '08:00', 60)];
+  assert.match(validateReservation(res('a', 'CS', '15:00', 10), existing, people).join(), /gesperrt/);
+  // anderer Tag ist wieder frei
+  assert.deepStrictEqual(validateReservation({ ...res('a', 'CS', '15:00', 10), date: '2026-10-27' }, existing, people), []);
+});
